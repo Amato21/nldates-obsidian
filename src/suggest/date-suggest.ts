@@ -136,7 +136,19 @@ export default class DateSuggest extends EditorSuggest<string> {
 
     // We check if the input contains a time component using the parser logic.
     // We cast to 'any' because parser is private in the main class.
-    const hasTime = (this.plugin as any).parser.hasTimeComponent(suggestion);
+    let hasTime = (this.plugin as any).parser.hasTimeComponent(suggestion);
+
+    // --- CORRECTION MULTILANGUE ---
+    // Si le parser n'a pas détecté l'heure (souvent le cas en anglais pour "in 2 minutes"),
+    // on force la détection si on voit des mots clés explicites (min, hour, etc).
+    if (!hasTime) {
+      // Regex pour détecter un chiffre suivi de min/hour/heure/h/m
+      const explicitTimeRegex = /\d+\s*(min|m|h|hour|heure|sec)/i;
+      if (suggestion.match(explicitTimeRegex)) {
+        hasTime = true;
+      }
+    }
+    // -----------------------------
 
     if (this.suggestionIsTime(suggestion)) {
       const timePart = suggestion.substring(5);
