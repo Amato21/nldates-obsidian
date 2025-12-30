@@ -26,16 +26,35 @@ export function getParseCommand(plugin: NaturalLanguageDates, mode: string): voi
     return;
   }
 
-  //mode == "replace"
-  let newStr = `[[${date.formattedString}]]`;
+  // --- MODIFICATION INTELLIGENTE V0.9 ---
+  // On vérifie si une heure est présente dans le texte sélectionné
+  // On utilise (plugin as any) car parser est privé dans main.ts
+  const hasTime = (plugin as any).parser.hasTimeComponent(selectedText);
 
-  if (mode == "link") {
+  let newStr = "";
+
+  if (mode == "replace") {
+    // C'est le mode par défaut (Create Link)
+    if (hasTime) {
+        // CAS HYBRIDE : [[Date]] Heure
+        const datePart = date.moment.format(plugin.settings.format);
+        // Si l'utilisateur n'a pas mis de format d'heure, on force HH:mm par sécurité
+        const timePart = date.moment.format(plugin.settings.timeFormat || "HH:mm");
+        
+        newStr = `[[${datePart}]] ${timePart}`;
+    } else {
+        // CAS CLASSIQUE : [[Date]]
+        newStr = `[[${date.formattedString}]]`;
+    }
+  } else if (mode == "link") {
+    // Lien Markdown standard [texte](date)
     newStr = `[${selectedText}](${date.formattedString})`;
   } else if (mode == "clean") {
+    // Texte brut sans lien
     newStr = `${date.formattedString}`;
   } else if (mode == "time") {
+    // Juste l'heure
     const time = plugin.parseTime(selectedText);
-
     newStr = `${time.formattedString}`;
   }
 
