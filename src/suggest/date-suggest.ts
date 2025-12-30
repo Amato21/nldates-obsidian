@@ -5,12 +5,12 @@ import {
   EditorSuggest,
   EditorSuggestContext,
   EditorSuggestTriggerInfo,
+  MarkdownView, // <-- AJOUTÉ ICI (C'était manquant)
   TFile,
 } from "obsidian";
 import type NaturalLanguageDates from "src/main";
 import t from "../lang/helper";
 import { generateMarkdownLink } from "src/utils";
-
 
 export default class DateSuggest extends EditorSuggest<string> {
   private plugin: NaturalLanguageDates;
@@ -150,7 +150,8 @@ export default class DateSuggest extends EditorSuggest<string> {
       );
     }
 
-    editor.replaceRange(dateStr, this.context.start, this.context.end);
+    // CORRECTION ICI : on utilise activeView.editor au lieu de editor tout court
+    activeView.editor.replaceRange(dateStr, this.context.start, this.context.end);
   }
 
   onTrigger(
