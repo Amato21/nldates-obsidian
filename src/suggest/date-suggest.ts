@@ -136,6 +136,10 @@ export default class DateSuggest extends EditorSuggest<string> {
 
     // We check if the input contains a time component using the parser logic.
     // We cast to 'any' because parser is private in the main class.
+    if (!(this.plugin as any).parser) {
+      this.plugin.resetParser();
+    }
+    
     let hasTime = (this.plugin as any).parser.hasTimeComponent(suggestion);
 
     // --- CORRECTION MULTILANGUE ---
@@ -191,6 +195,11 @@ export default class DateSuggest extends EditorSuggest<string> {
       );
     }
 
+    if (!this.context) {
+      console.error('DateSuggest: context is undefined');
+      return;
+    }
+    
     activeView.editor.replaceRange(dateStr, this.context.start, this.context.end);
   }
 

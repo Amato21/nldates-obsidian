@@ -19,6 +19,9 @@ export default class NaturalLanguageDates extends Plugin {
 
   async onload(): Promise<void> {
     await this.loadSettings();
+    
+    // Initialiser le parser immédiatement (pas besoin d'attendre onLayoutReady)
+    await this.resetParser();
 
     this.addCommand({
       id: "nlp-dates",
@@ -84,21 +87,16 @@ export default class NaturalLanguageDates extends Plugin {
     this.addSettingTab(new NLDSettingsTab(this.app, this));
     this.registerObsidianProtocolHandler("nldates", this.actionHandler.bind(this));
     this.registerEditorSuggest(new DateSuggest(this.app, this));
-
-    this.app.workspace.onLayoutReady(() => {
-      // initialize the parser when layout is ready so that the correct locale is used
-      this.resetParser();
-    });
   }
 
   async resetParser(): Promise<void> {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/0d0f280c-c24d-45f9-a1b0-98f0df462ad5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.ts:94',message:'resetParser called',data:{languages:this.settings.languages,languagesLength:this.settings.languages.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
-    this.parser = new NLDParser(this.settings.languages);
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/0d0f280c-c24d-45f9-a1b0-98f0df462ad5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.ts:94',message:'resetParser completed',data:{parserExists:!!this.parser},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
+    try {
+      this.parser = new NLDParser(this.settings.languages);
+    } catch (error) {
+      console.error('Failed to initialize parser:', error);
+      // Créer un parser avec l'anglais par défaut en cas d'erreur pour éviter que le plugin plante complètement
+      this.parser = new NLDParser(['en']);
+    }
   }
 
   onunload(): void {
@@ -107,27 +105,15 @@ export default class NaturalLanguageDates extends Plugin {
 
   async loadSettings(): Promise<void> {
     const loadedData = await this.loadData();
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/0d0f280c-c24d-45f9-a1b0-98f0df462ad5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.ts:102',message:'loadSettings entry',data:{loadedData:loadedData,defaultLanguages:DEFAULT_SETTINGS.languages,defaultEnglish:DEFAULT_SETTINGS.english},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
-    // #endregion
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/0d0f280c-c24d-45f9-a1b0-98f0df462ad5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.ts:102',message:'loadSettings after merge',data:{settingsLanguages:this.settings.languages,settingsEnglish:this.settings.english,settingsFrench:this.settings.french},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
-    // #endregion
     
     // S'assurer que languages n'est pas vide (utiliser les valeurs par défaut si nécessaire)
     if (!this.settings.languages || this.settings.languages.length === 0) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/0d0f280c-c24d-45f9-a1b0-98f0df462ad5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.ts:102',message:'languages array is empty, resetting to default',data:{settingsLanguages:this.settings.languages},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
       this.settings.languages = [...DEFAULT_SETTINGS.languages];
     }
     
     // Synchroniser les flags avec le tableau languages si nécessaire
     this.syncLanguageFlags();
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/0d0f280c-c24d-45f9-a1b0-98f0df462ad5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.ts:102',message:'loadSettings after sync',data:{settingsLanguages:this.settings.languages,settingsEnglish:this.settings.english,settingsFrench:this.settings.french},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
-    // #endregion
   }
 
   // Synchronise les flags de langue (english, french, etc.) avec le tableau languages
@@ -169,6 +155,10 @@ export default class NaturalLanguageDates extends Plugin {
     @returns NLDResult: An object containing the date, a cloned Moment and the formatted string.
   */
   parse(dateString: string, format: string): NLDResult {
+    if (!this.parser) {
+      // Parser pas encore initialisé, l'initialiser maintenant
+      this.resetParser();
+    }
     const date = this.parser.getParsedDate(dateString, this.settings.weekStart);
     const formattedString = getFormattedDate(date, format);
     if (formattedString === "Invalid date") {
