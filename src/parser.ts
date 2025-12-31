@@ -47,7 +47,12 @@ export default class NLDParser {
         return window.moment().add(1, 'days').toDate();
     }
     if (text === 'yesterday' || text === 'hier') {
-        return window.moment().subtract(1, 'days').toDate();
+        // #region agent log
+        const beforeYesterday = window.moment();
+        const yesterdayResult = window.moment().subtract(1, 'days');
+        fetch('http://127.0.0.1:7242/ingest/0d0f280c-c24d-45f9-a1b0-98f0df462ad5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'parser.ts:49',message:'yesterday/hier parsing',data:{input:text,currentDate:beforeYesterday.format('YYYY-MM-DD dddd'),resultDate:yesterdayResult.format('YYYY-MM-DD dddd'),locale:window.moment.locale()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        return yesterdayResult.toDate();
     }
 
     // ============================================================
@@ -79,14 +84,32 @@ export default class NLDParser {
         const dayName = weekMatch[2].toLowerCase();
         
         let m = window.moment();
+        // #region agent log
+        const beforeDay = m.clone();
+        const currentLocale = window.moment.locale();
+        const currentDayOfWeek = m.day();
+        fetch('http://127.0.0.1:7242/ingest/0d0f280c-c24d-45f9-a1b0-98f0df462ad5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'parser.ts:77',message:'weekday match entry',data:{input:selectedText,text:text,prefix:prefix,dayName:dayName,currentDate:beforeDay.format('YYYY-MM-DD dddd'),currentDayOfWeek:currentDayOfWeek,locale:currentLocale},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'})}).catch(()=>{});
+        // #endregion
         
         if (prefix === 'this' || prefix === 'ce') {
+            // #region agent log
+            const beforeThisDay = m.clone();
+            fetch('http://127.0.0.1:7242/ingest/0d0f280c-c24d-45f9-a1b0-98f0df462ad5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'parser.ts:84',message:'before m.day() call',data:{dayName:dayName,currentMoment:beforeThisDay.format('YYYY-MM-DD dddd'),locale:currentLocale},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'})}).catch(()=>{});
+            // #endregion
             m.day(dayName);
+            // #region agent log
+            const afterThisDay = m.clone();
+            fetch('http://127.0.0.1:7242/ingest/0d0f280c-c24d-45f9-a1b0-98f0df462ad5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'parser.ts:84',message:'after m.day() call',data:{dayName:dayName,resultMoment:afterThisDay.format('YYYY-MM-DD dddd'),resultDayOfWeek:afterThisDay.day(),locale:currentLocale},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'})}).catch(()=>{});
+            // #endregion
         } else if (prefix === 'next' || prefix === 'prochain') {
             m.add(1, 'weeks').day(dayName);
         } else if (prefix === 'last' || prefix === 'dernier') {
             m.subtract(1, 'weeks').day(dayName);
         }
+        // #region agent log
+        const finalResult = m.clone();
+        fetch('http://127.0.0.1:7242/ingest/0d0f280c-c24d-45f9-a1b0-98f0df462ad5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'parser.ts:91',message:'weekday parsing final result',data:{input:selectedText,prefix:prefix,dayName:dayName,finalDate:finalResult.format('YYYY-MM-DD dddd'),finalDayOfWeek:finalResult.day(),locale:currentLocale},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'})}).catch(()=>{});
+        // #endregion
         return m.toDate();
     }
 
