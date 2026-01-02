@@ -36,6 +36,10 @@ const dict = {
   week: "week|weeks|w",
   month: "month|months|M|mo",
   year: "year|years|y|yr|yrs",
+  and: "and",
+  at: "at",
+  from: "from",
+  to: "to|until|till",
 } as const;
 
 export default dict;

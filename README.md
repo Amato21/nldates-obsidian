@@ -6,12 +6,18 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
 ## ✨ New Features
 
 ### v0.9.0 - Advanced Multilingual Support 🚀
-* **🌍 Complete Multilingual Engine:** Full support for **English, French, German, Japanese, Dutch, and Portuguese**!
+* **🌍 Complete Multilingual Engine:** Full support for **English, French, German, Japanese, Dutch, Portuguese, Spanish, and Italian**!
     * Each language works **100%** with its own native words and units
-    * *Examples:* `@ato 2 fun` (Japanese), `@in 2 Minuten` (German), `@dans 2 min` (French), `@over 2 minuten` (Dutch)
+    * *Examples:* `@ato 2 fun` (Japanese), `@in 2 Minuten` (German), `@dans 2 min` (French), `@over 2 minuten` (Dutch), `@en 2 minutos` (Spanish), `@tra 2 minuti` (Italian)
     * All time units (minutes, hours, days, weeks, months, years) are fully translated
     * All weekdays are recognized in all languages
     * Dynamic regex generation from translations - no hardcoded words!
+* **✨ Advanced Relative Dates:** Support for complex date expressions!
+    * **Combined durations:** `@in 2 weeks and 3 days`, `@dans 2 semaines et 3 jours`
+    * **Weekday with time:** `@next Monday at 3pm`, `@prochain lundi à 15h`
+    * **Date ranges:** `@from Monday to Friday`, `@de lundi à vendredi`
+    * **Week ranges:** `@next week` (returns Monday to Sunday of next week)
+    * Works in all supported languages with native translations
 
 ### v0.8.0
 * **🌍 Multilingual Support:** Now supports **English, French, German, Japanese, Dutch, and Portuguese**!
@@ -41,6 +47,10 @@ Type `@` (default trigger) followed by a natural date.
 * `@today` → `[[2024-12-30]]`
 * `@tomorrow` → `[[2024-12-31]]`
 * `@in 20 minutes` → `[[2024-12-30]] 23:50`
+* `@in 2 weeks and 3 days` → `[[2025-01-22]]`
+* `@next Monday at 3pm` → `[[2025-01-06]] 15:00`
+* `@from Monday to Friday` → `[[2025-01-06]] to [[2025-01-10]]`
+* `@next week` → `[[2025-01-06]] to [[2025-01-12]]`
 
 Press <kbd>Shift</kbd> + <kbd>Enter</kbd> to keep the original text as an alias (e.g. `[[2024-12-30|today]]`).
 

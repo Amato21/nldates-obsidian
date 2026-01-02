@@ -29,6 +29,8 @@ export interface NLDSettings {
   german: boolean;
   portuguese: boolean;
   dutch: boolean;
+  spanish: boolean;
+  italian: boolean;
 
   modalToggleTime: boolean;
   modalToggleLink: boolean;
@@ -52,6 +54,8 @@ export const DEFAULT_SETTINGS: NLDSettings = {
   german: false,
   portuguese: false,
   dutch: false,
+  spanish: false,
+  italian: false,
 
   modalToggleTime: false,
   modalToggleLink: false,
@@ -123,6 +127,8 @@ export class NLDSettingsTab extends PluginSettingTab {
     this.createLanguageSetting(containerEl, "German", "german", "de", "partially supported");
     this.createLanguageSetting(containerEl, "Portuguese", "portuguese", "pt", "partially supported");
     this.createLanguageSetting(containerEl, "Dutch", "dutch", "nl", "under development");
+    this.createLanguageSetting(containerEl, "Spanish", "spanish", "es");
+    this.createLanguageSetting(containerEl, "Italian", "italian", "it");
 
     new Setting(containerEl).setHeading().setName("Hotkey formatting settings");
 

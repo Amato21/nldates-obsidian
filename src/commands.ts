@@ -15,6 +15,36 @@ export function getParseCommand(plugin: NaturalLanguageDates, mode: string): voi
   const cursor = editor.getCursor();
   const selectedText = getSelectedText(editor);
 
+  // Vérifier d'abord si c'est une plage de dates
+  const dateRange = plugin.parseDateRange(selectedText);
+  
+  if (dateRange) {
+    // C'est une plage de dates
+    let newStr = "";
+    const startFormatted = dateRange.startMoment.format(plugin.settings.format);
+    const endFormatted = dateRange.endMoment.format(plugin.settings.format);
+    
+    if (mode == "replace") {
+      // Générer des liens pour la plage : [[start]] to [[end]]
+      newStr = `[[${startFormatted}]] to [[${endFormatted}]]`;
+    } else if (mode == "link") {
+      // Lien Markdown standard
+      newStr = `[${selectedText}](${dateRange.formattedString})`;
+    } else if (mode == "clean") {
+      // Texte brut sans lien
+      newStr = `${startFormatted} to ${endFormatted}`;
+    } else if (mode == "time") {
+      // Pas d'heure pour les plages
+      newStr = `${startFormatted} to ${endFormatted}`;
+    }
+    
+    editor.replaceSelection(newStr);
+    adjustCursor(editor, cursor, newStr, selectedText);
+    editor.focus();
+    return;
+  }
+
+  // Sinon, traiter comme une date normale
   const date = plugin.parseDate(selectedText);
 
   if (!date.moment.isValid()) {

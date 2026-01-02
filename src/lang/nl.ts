@@ -36,6 +36,10 @@ const dict = {
   week: "week|weken|w",
   month: "maand|maanden|M|mo",
   year: "jaar|jaren|j|y",
+  and: "en",
+  at: "om",
+  from: "van|vanaf",
+  to: "tot|tot en met",
 } as const;
 
 export default dict;

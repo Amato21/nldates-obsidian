@@ -19,13 +19,25 @@ export interface NLDResult {
   moment: Moment;
 }
 
+export interface NLDRangeResult {
+  formattedString: string;
+  startDate: Date;
+  endDate: Date;
+  startMoment: Moment;
+  endMoment: Moment;
+  isRange: true;
+}
+
 export default class NLDParser {
   chronos: Chrono[];
   languages: string[];
   
   // Regex dynamiques générées à partir des traductions
   regexRelative: RegExp;
+  regexRelativeCombined: RegExp; // Pour "in 2 weeks and 3 days"
   regexWeekday: RegExp;
+  regexWeekdayWithTime: RegExp; // Pour "next Monday at 3pm"
+  regexDateRange: RegExp; // Pour "from Monday to Friday"
   
   // Mots-clés pour toutes les langues
   immediateKeywords: Set<string>;
@@ -93,20 +105,72 @@ export default class NLDParser {
       }
     }
 
+    // Collecter les mots "and", "at", "from" et "to" pour toutes les langues
+    const andWords: string[] = [];
+    const atWords: string[] = [];
+    const fromWords: string[] = [];
+    const toWords: string[] = [];
+    
+    for (const lang of this.languages) {
+      const andWord = t("and", lang);
+      if (andWord && andWord !== "NOTFOUND") {
+        andWords.push(...andWord.split("|").map(w => w.trim()).filter(w => w));
+      }
+      
+      const atWord = t("at", lang);
+      if (atWord && atWord !== "NOTFOUND") {
+        atWords.push(...atWord.split("|").map(w => w.trim()).filter(w => w));
+      }
+      
+      const fromWord = t("from", lang);
+      if (fromWord && fromWord !== "NOTFOUND") {
+        fromWords.push(...fromWord.split("|").map(w => w.trim()).filter(w => w));
+      }
+      
+      const toWord = t("to", lang);
+      if (toWord && toWord !== "NOTFOUND") {
+        toWords.push(...toWord.split("|").map(w => w.trim()).filter(w => w));
+      }
+    }
+
     // Créer les regex avec échappement des caractères spéciaux
     const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const inPattern = [...new Set(inWords.map(escapeRegex))].join('|');
     const prefixPattern = [...new Set([...thisWords, ...nextWords, ...lastWords].map(escapeRegex))].join('|');
     const weekdayPattern = [...new Set(weekdays.map(escapeRegex))].join('|');
     const timeUnitPattern = [...new Set(timeUnits.map(escapeRegex))].join('|');
+    const andPattern = [...new Set(andWords.map(escapeRegex))].join('|');
+    const atPattern = [...new Set(atWords.map(escapeRegex))].join('|');
+    const fromPattern = [...new Set(fromWords.map(escapeRegex))].join('|');
+    const toPattern = [...new Set(toWords.map(escapeRegex))].join('|');
 
+    // Regex simple pour "in 2 minutes"
     this.regexRelative = new RegExp(
       `^\\s*(?:${inPattern})\\s+(\\d+)\\s*(${timeUnitPattern})\\s*$`,
       'i'
     );
 
+    // Regex pour les combinaisons "in 2 weeks and 3 days"
+    this.regexRelativeCombined = new RegExp(
+      `^\\s*(?:${inPattern})\\s+(\\d+)\\s*(${timeUnitPattern})\\s+(?:${andPattern})\\s+(\\d+)\\s*(${timeUnitPattern})\\s*$`,
+      'i'
+    );
+
+    // Regex simple pour "next Monday"
     this.regexWeekday = new RegExp(
       `^\\s*(${prefixPattern})\\s+(${weekdayPattern})\\s*$`,
+      'i'
+    );
+
+    // Regex pour "next Monday at 3pm" - capture le jour et l'heure
+    this.regexWeekdayWithTime = new RegExp(
+      `^\\s*(${prefixPattern})\\s+(${weekdayPattern})\\s+(?:${atPattern})\\s+(.+)$`,
+      'i'
+    );
+
+    // Regex pour "from Monday to Friday" - capture deux jours de la semaine
+    this.regexDateRange = new RegExp(
+      `^\\s*(?:${fromPattern})\\s+(${weekdayPattern})\\s+(?:${toPattern})\\s+(${weekdayPattern})\\s*$`,
       'i'
     );
   }
@@ -239,6 +303,47 @@ export default class NLDParser {
     // ============================================================
     // NIVEAU 2 : LE CALCUL RELATIF (in 2 minutes, in 1 year...)
     // ============================================================
+    // D'abord vérifier les combinaisons "in 2 weeks and 3 days"
+    const relCombinedMatch = selectedText.match(this.regexRelativeCombined);
+    if (relCombinedMatch) {
+        const value1 = parseInt(relCombinedMatch[1]);
+        const unitStr1 = relCombinedMatch[2].toLowerCase().trim();
+        const value2 = parseInt(relCombinedMatch[3]);
+        const unitStr2 = relCombinedMatch[4].toLowerCase().trim();
+        
+        // Chercher les unités dans le mapping des traductions
+        let unit1: 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'years' = 'minutes';
+        let unit2: 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'years' = 'minutes';
+        
+        if (this.timeUnitMap.has(unitStr1)) {
+            unit1 = this.timeUnitMap.get(unitStr1)!;
+        } else {
+            // Fallback pour les abréviations communes
+            if (unitStr1.startsWith('h')) unit1 = 'hours';
+            else if (unitStr1.startsWith('d') || unitStr1.startsWith('j')) unit1 = 'days';
+            else if (unitStr1.startsWith('w') || unitStr1.startsWith('s')) unit1 = 'weeks';
+            else if (unitStr1 === 'm' || unitStr1.startsWith('min')) unit1 = 'minutes';
+            else if (unitStr1.startsWith('mo') || unitStr1 === 'M' || unitStr1.startsWith('mois')) unit1 = 'months';
+            else if (unitStr1.startsWith('y') || unitStr1.startsWith('a')) unit1 = 'years';
+        }
+        
+        if (this.timeUnitMap.has(unitStr2)) {
+            unit2 = this.timeUnitMap.get(unitStr2)!;
+        } else {
+            // Fallback pour les abréviations communes
+            if (unitStr2.startsWith('h')) unit2 = 'hours';
+            else if (unitStr2.startsWith('d') || unitStr2.startsWith('j')) unit2 = 'days';
+            else if (unitStr2.startsWith('w') || unitStr2.startsWith('s')) unit2 = 'weeks';
+            else if (unitStr2 === 'm' || unitStr2.startsWith('min')) unit2 = 'minutes';
+            else if (unitStr2.startsWith('mo') || unitStr2 === 'M' || unitStr2.startsWith('mois')) unit2 = 'months';
+            else if (unitStr2.startsWith('y') || unitStr2.startsWith('a')) unit2 = 'years';
+        }
+
+        // Additionner les deux durées
+        return window.moment().add(value1, unit1).add(value2, unit2).toDate();
+    }
+    
+    // Ensuite vérifier les expressions simples "in 2 minutes"
     const relMatch = selectedText.match(this.regexRelative);
     if (relMatch) {
         const value = parseInt(relMatch[1]);
@@ -264,8 +369,68 @@ export default class NLDParser {
     }
 
     // ============================================================
+    // NIVEAU 2.5 : LES PLAGES DE DATES (from Monday to Friday)
+    // ============================================================
+    // Vérifier "from Monday to Friday"
+    const rangeMatch = selectedText.match(this.regexDateRange);
+    if (rangeMatch) {
+        const startDayName = rangeMatch[1].toLowerCase();
+        const endDayName = rangeMatch[2].toLowerCase();
+        
+        const m = window.moment();
+        const startDayIndex = this.getDayOfWeekIndex(startDayName);
+        const endDayIndex = this.getDayOfWeekIndex(endDayName);
+        
+        // Trouver le prochain jour de début
+        let startMoment = window.moment().day(startDayIndex);
+        if (startMoment.isBefore(m, 'day')) {
+            startMoment.add(1, 'week');
+        }
+        
+        // Trouver le prochain jour de fin (peut être dans la même semaine ou la suivante)
+        let endMoment = window.moment().day(endDayIndex);
+        if (endMoment.isBefore(startMoment, 'day')) {
+            endMoment.add(1, 'week');
+        }
+        
+        // Retourner la date de début (pour compatibilité, mais on devrait utiliser getParsedDateRange)
+        return startMoment.toDate();
+    }
+
+    // ============================================================
     // NIVEAU 3 : LES JOURS DE LA SEMAINE (next friday...)
     // ============================================================
+    // D'abord vérifier "next Monday at 3pm"
+    const weekWithTimeMatch = selectedText.match(this.regexWeekdayWithTime);
+    if (weekWithTimeMatch) {
+        const prefix = weekWithTimeMatch[1].toLowerCase();
+        const dayName = weekWithTimeMatch[2].toLowerCase();
+        const timePart = weekWithTimeMatch[3].trim();
+        
+        const m = window.moment();
+        
+        // Convertir le nom de jour en indice numérique pour éviter les problèmes de locale
+        const dayIndex = this.getDayOfWeekIndex(dayName);
+        
+        if (this.prefixKeywords.this.has(prefix)) {
+            m.day(dayIndex);
+        } else if (this.prefixKeywords.next.has(prefix)) {
+            m.add(1, 'weeks').day(dayIndex);
+        } else if (this.prefixKeywords.last.has(prefix)) {
+            m.subtract(1, 'weeks').day(dayIndex);
+        }
+        
+        // Parser l'heure avec chrono-node
+        const timeResult = this.getParsedDateResult(timePart, m.toDate());
+        if (timeResult) {
+            return timeResult;
+        }
+        
+        // Si le parsing de l'heure échoue, retourner juste la date
+        return m.toDate();
+    }
+    
+    // Ensuite vérifier les expressions simples "next Monday"
     const weekMatch = selectedText.match(this.regexWeekday);
     if (weekMatch) {
         const prefix = weekMatch[1].toLowerCase();
@@ -333,6 +498,79 @@ export default class NLDParser {
     } as ParsingOption);
   }
 
+  // --- MÉTHODE POUR PARSER LES PLAGES DE DATES ---
+  getParsedDateRange(selectedText: string, weekStartPreference: DayOfWeek): NLDRangeResult | null {
+    const text = selectedText.toLowerCase().trim();
+    
+    // Vérifier "from Monday to Friday"
+    const rangeMatch = selectedText.match(this.regexDateRange);
+    if (rangeMatch) {
+      const startDayName = rangeMatch[1].toLowerCase();
+      const endDayName = rangeMatch[2].toLowerCase();
+      
+      const m = window.moment();
+      const startDayIndex = this.getDayOfWeekIndex(startDayName);
+      const endDayIndex = this.getDayOfWeekIndex(endDayName);
+      
+      // Trouver le prochain jour de début
+      let startMoment = window.moment().day(startDayIndex);
+      if (startMoment.isBefore(m, 'day')) {
+        startMoment.add(1, 'week');
+      }
+      
+      // Trouver le prochain jour de fin (peut être dans la même semaine ou la suivante)
+      let endMoment = window.moment().day(endDayIndex);
+      if (endMoment.isBefore(startMoment, 'day')) {
+        endMoment.add(1, 'week');
+      }
+      
+      const format = "YYYY-MM-DD";
+      const startFormatted = startMoment.format(format);
+      const endFormatted = endMoment.format(format);
+      
+      return {
+        formattedString: `${startFormatted} to ${endFormatted}`,
+        startDate: startMoment.toDate(),
+        endDate: endMoment.toDate(),
+        startMoment: startMoment.clone(),
+        endMoment: endMoment.clone(),
+        isRange: true,
+      };
+    }
+    
+    // Vérifier "next week" comme plage
+    const nextPattern = Array.from(this.prefixKeywords.next).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    const nextWeekMatch = selectedText.match(new RegExp(`(${nextPattern})\\s+([\\w]+)`, 'i'));
+    if (nextWeekMatch) {
+      const period = nextWeekMatch[2].toLowerCase();
+      for (const lang of this.languages) {
+        if (period === t('week', lang).toLowerCase()) {
+          // Next week -> retourner du lundi au dimanche de la semaine prochaine
+          const weekStart = weekStartPreference === "locale-default" ? getLocaleWeekStart() : weekStartPreference;
+          const weekStartIndex = this.getDayOfWeekIndex(String(weekStart));
+          
+          const startMoment = window.moment().add(1, 'weeks').day(weekStartIndex);
+          const endMoment = startMoment.clone().add(6, 'days');
+          
+          const format = "YYYY-MM-DD";
+          const startFormatted = startMoment.format(format);
+          const endFormatted = endMoment.format(format);
+          
+          return {
+            formattedString: `${startFormatted} to ${endFormatted}`,
+            startDate: startMoment.toDate(),
+            endDate: endMoment.toDate(),
+            startMoment: startMoment.clone(),
+            endMoment: endMoment.clone(),
+            isRange: true,
+          };
+        }
+      }
+    }
+    
+    return null;
+  }
+
   // --- FONCTION UTILITAIRE : QUI A LE MEILLEUR SCORE ? ---
   getParsedDateResult(text: string, referenceDate?: Date, option?: ParsingOption): Date {
     if (!this.chronos || this.chronos.length === 0) return new Date();
@@ -394,7 +632,10 @@ export default class NLDParser {
         return false;
     }
 
-    // 3. Si c'est un jour spécifique (Next Monday) ou Tomorrow -> NON (Généralement on veut juste la date)
+    // 3. Si c'est un jour spécifique avec heure (Next Monday at 3pm) -> OUI
+    if (this.regexWeekdayWithTime && this.regexWeekdayWithTime.test(text)) return true;
+    
+    // 4. Si c'est un jour spécifique sans heure (Next Monday) ou Tomorrow -> NON (Généralement on veut juste la date)
     // Si tu veux l'heure pour "Demain", enlève les lignes ci-dessous.
     if (this.regexWeekday.test(text)) return false;
     
@@ -413,7 +654,7 @@ export default class NLDParser {
       return false;
     }
 
-    // 4. Sinon, on demande à la librairie si elle voit une heure explicite (ex: "Tomorrow at 5pm")
+    // 5. Sinon, on demande à la librairie si elle voit une heure explicite (ex: "Tomorrow at 5pm")
     if (!this.chronos) return false;
     for (const c of this.chronos) {
       try {

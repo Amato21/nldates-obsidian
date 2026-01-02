@@ -36,6 +36,10 @@ const dict = {
   week: "semaine|semaines|s|w",
   month: "mois|M|mo",
   year: "année|années|an|ans|a|y",
+  and: "et",
+  at: "à|a",
+  from: "de|depuis|du",
+  to: "à|jusqu'à|jusqu'au|au",
 } as const;
 
 export default dict;

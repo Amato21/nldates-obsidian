@@ -116,6 +116,8 @@ export default class NaturalLanguageDates extends Plugin {
       'de': 'german',
       'pt': 'portuguese',
       'nl': 'dutch',
+      'es': 'spanish',
+      'it': 'italian',
     };
     
     // Réinitialiser tous les flags
@@ -125,6 +127,8 @@ export default class NaturalLanguageDates extends Plugin {
     this.settings.german = false;
     this.settings.portuguese = false;
     this.settings.dutch = false;
+    this.settings.spanish = false;
+    this.settings.italian = false;
     
     // Activer les flags correspondant aux langues dans le tableau
     for (const lang of this.settings.languages) {
@@ -175,8 +179,8 @@ export default class NaturalLanguageDates extends Plugin {
     if (hasTime) {
       const timeFormat = this.settings.timeFormat || "HH:mm";
       
-      // TIP: Here we format “Date TIME.”
-      // But BEWARE: it is the “date-suggest.ts” file that will add the [[ ]].
+      // TIP: Here we format "Date TIME."
+      // But BEWARE: it is the "date-suggest.ts" file that will add the [[ ]].
       // If we don't touch date-suggest, it will make [[Date Time]].
       // To make [[Date]] Time, we have to be clever.
       
@@ -184,6 +188,17 @@ export default class NaturalLanguageDates extends Plugin {
     }
 
     return this.parse(dateString, formatToUse);
+  }
+
+  /*
+    @param dateString: A string that contains a date range in natural language, e.g. "from Monday to Friday", "next week"
+    @returns NLDRangeResult | null: An object containing the date range, or null if not a range
+  */
+  parseDateRange(dateString: string): import("./parser").NLDRangeResult | null {
+    if (!this.parser) {
+      this.resetParser();
+    }
+    return this.parser.getParsedDateRange(dateString, this.settings.weekStart);
   }
 
   parseTime(dateString: string): NLDResult {

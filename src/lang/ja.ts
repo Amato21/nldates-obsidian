@@ -36,6 +36,10 @@ const dict = {
   week: "週|週間|しゅう|しゅうかん",
   month: "月|ヶ月|かげつ|がつ",
   year: "年|ねん",
+  and: "と|および",
+  at: "に|で",
+  from: "から|より",
+  to: "まで|までに",
 } as const;
 
 export default dict;

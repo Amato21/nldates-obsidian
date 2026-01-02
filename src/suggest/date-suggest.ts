@@ -158,32 +158,55 @@ export default class DateSuggest extends EditorSuggest<string> {
       dateStr = this.plugin.parseTime(timePart).formattedString;
       makeIntoLink = false;
     } else {
-      const parsedResult = this.plugin.parseDate(suggestion);
-
-      // --- HYBRID LINK LOGIC START ---
-      // If a time is detected AND linking is enabled, we split the link.
-      // Expected result: [[YYYY-MM-DD]] HH:mm
-      if (hasTime && makeIntoLink) {
-        // 1. Format the date part
-        const datePart = parsedResult.moment.format(this.plugin.settings.format);
+      // Vérifier d'abord si c'est une plage de dates
+      const dateRange = this.plugin.parseDateRange(suggestion);
+      
+      if (dateRange) {
+        // C'est une plage de dates
+        const startFormatted = dateRange.startMoment.format(this.plugin.settings.format);
+        const endFormatted = dateRange.endMoment.format(this.plugin.settings.format);
         
-        // 2. Format the time part (fallback to HH:mm if not set)
-        const timePart = parsedResult.moment.format(this.plugin.settings.timeFormat || "HH:mm");
-
-        // 3. Generate the markdown link ONLY for the date part
-        dateStr = generateMarkdownLink(
-          this.app,
-          datePart,
-          includeAlias ? suggestion : undefined
-        ) + " " + timePart; // Append time as plain text
-
-        // 4. Disable standard linking since we constructed it manually above
-        makeIntoLink = false; 
+        if (makeIntoLink) {
+          dateStr = generateMarkdownLink(
+            this.app,
+            startFormatted,
+            includeAlias ? suggestion : undefined
+          ) + " to " + generateMarkdownLink(
+            this.app,
+            endFormatted
+          );
+        } else {
+          dateStr = `${startFormatted} to ${endFormatted}`;
+        }
+        makeIntoLink = false; // Déjà géré ci-dessus
       } else {
-        // Standard behavior for dates without time (e.g., @tomorrow)
-        dateStr = parsedResult.formattedString;
+        const parsedResult = this.plugin.parseDate(suggestion);
+
+        // --- HYBRID LINK LOGIC START ---
+        // If a time is detected AND linking is enabled, we split the link.
+        // Expected result: [[YYYY-MM-DD]] HH:mm
+        if (hasTime && makeIntoLink) {
+          // 1. Format the date part
+          const datePart = parsedResult.moment.format(this.plugin.settings.format);
+          
+          // 2. Format the time part (fallback to HH:mm if not set)
+          const timePart = parsedResult.moment.format(this.plugin.settings.timeFormat || "HH:mm");
+
+          // 3. Generate the markdown link ONLY for the date part
+          dateStr = generateMarkdownLink(
+            this.app,
+            datePart,
+            includeAlias ? suggestion : undefined
+          ) + " " + timePart; // Append time as plain text
+
+          // 4. Disable standard linking since we constructed it manually above
+          makeIntoLink = false; 
+        } else {
+          // Standard behavior for dates without time (e.g., @tomorrow)
+          dateStr = parsedResult.formattedString;
+        }
+        // --- HYBRID LINK LOGIC END ---
       }
-      // --- HYBRID LINK LOGIC END ---
     }
 
     if (makeIntoLink) {
